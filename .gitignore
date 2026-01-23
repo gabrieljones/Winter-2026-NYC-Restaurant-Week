@@ -1,0 +1,5 @@
+build/
+.gradle/
+.bsp/
+.scala-build/
+output_map.html
