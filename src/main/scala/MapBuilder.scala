@@ -1,62 +1,39 @@
 import upickle.default.{read => uread, write => uwrite, _}
 import os._
 import scalatags.Text.all._
-
-case class Restaurant(
-    name: String,
-    pdf_url: String,
-    slug: String,
-    url: String,
-    venueAddress: String,
-    latitude: Double,
-    longitude: Double,
-    summary: String,
-    website: String,
-    collections: String,
-    borough: String,
-    neighborhood: String,
-    primaryCategory: String,
-    primaryLocation: String,
-    restaurantInclusionWeek: String,
-    image_url: String,
-    partnerId: ujson.Value,
-    meal_type: String,
-    tags: String
-) derives ReadWriter
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 object MapBuilder {
   def main(args: Array[String]): Unit = {
-    val jsonPath = os.pwd / "restaurants.json"
-    if (!os.exists(jsonPath)) {
-      println(s"Error: $jsonPath does not exist.")
+    val (jsonInput, htmlOutput) = if (args.length >= 2) (args(0), args(1)) else ("build/restaurants.json", "build/output_map.html")
+
+    if (jsonInput.startsWith("build/")) os.makeDir.all(os.pwd / "build")
+
+    if (!os.exists(os.Path(jsonInput, os.pwd))) {
+      println(s"JSON file not found: $jsonInput")
       sys.exit(1)
     }
 
-    val jsonContent = os.read(jsonPath)
+    val jsonContent = os.read(os.Path(jsonInput, os.pwd))
     val restaurants = uread[List[Restaurant]](jsonContent)
 
     val htmlContent = generateHtml(restaurants)
-    val outputPath = os.pwd / "output_map.html"
-    os.write.over(outputPath, htmlContent)
-    println(s"Map generated at $outputPath")
+    os.write.over(os.Path(htmlOutput, os.pwd), htmlContent, createFolders = true)
+    println(s"Map generated at $htmlOutput")
   }
 
   def generateHtml(restaurants: List[Restaurant]): String = {
-    // 1. Analyze data for groups and tags
-    // Some entries might have empty strings or nulls, be careful.
-    val allMealTypes = restaurants.flatMap(r => Option(r.meal_type).getOrElse("").split(";").map(_.trim).filter(_.nonEmpty)).toSet.toList.sorted
-    val allTags = restaurants.flatMap(r => Option(r.tags).getOrElse("").split(";").map(_.trim).filter(_.nonEmpty)).toSet.toList.sorted
+    val allMealTypes = restaurants.flatMap(r => r.meal_type.split(";").map(_.trim).filter(_.nonEmpty)).toSet.toList.sorted
+    val allTags = restaurants.flatMap(r => r.tags.split(";").map(_.trim).filter(_.nonEmpty)).toSet.toList.sorted
 
-    // Group meal types by price for the layer control
     val priceGroups = allMealTypes.groupBy { mt =>
       val pricePart = mt.split(" ").find(_.startsWith("$"))
       pricePart.getOrElse("Other")
     }
 
-    // 2. Generate Javascript Parts
     val sb = new StringBuilder
 
-    // Map Init
     sb.append(
       """
         |var map = L.map("map", {
@@ -83,7 +60,6 @@ object MapBuilder {
         |).addTo(map);
         |""".stripMargin)
 
-    // Feature Groups creation
     val groupVarNames = allMealTypes.zipWithIndex.map { case (mt, idx) =>
       mt -> s"group_$idx"
     }.toMap
@@ -92,11 +68,10 @@ object MapBuilder {
       sb.append(s"""var $varName = L.featureGroup({}).addTo(map);""" + "\n")
     }
 
-    // Markers creation
     restaurants.zipWithIndex.foreach { case (r, idx) =>
       val markerVar = s"marker_$idx"
-      val rTags = Option(r.tags).getOrElse("").split(";").map(_.trim).filter(_.nonEmpty).toList
-      val rMealTypes = Option(r.meal_type).getOrElse("").split(";").map(_.trim).filter(_.nonEmpty).toList
+      val rTags = r.tags.split(";").map(_.trim).filter(_.nonEmpty).toList
+      val rMealTypes = r.meal_type.split(";").map(_.trim).filter(_.nonEmpty).toList
       val tagsJson = uwrite(rTags)
 
       sb.append(
@@ -111,17 +86,30 @@ object MapBuilder {
            |);
            |""".stripMargin)
 
-      // Popup Content
-      val imagePart: Modifier = if (r.image_url != null && r.image_url.nonEmpty) img(src := r.image_url, width := "300") else ""
+      def encode(s: String) = URLEncoder.encode(s, StandardCharsets.UTF_8.toString)
 
-      val pdfPart: Modifier = if (r.pdf_url != null && r.pdf_url.nonEmpty) span(a(href := r.pdf_url, target := "_blank", attr("style") := "font-size: 15px", "PDF"), br) else ""
+      val googleLink = s"https://www.google.com/maps/search/?api=1&query=${encode(r.name + " " + r.venueAddress)}"
+      val yelpLink = s"https://www.yelp.com/search?find_desc=${encode(r.name)}&find_loc=${encode(r.venueAddress)}"
+      val resyLink = s"https://resy.com/cities/ny?query=${encode(r.name)}"
+
+      val imagePart: Modifier = if (r.image_url.nonEmpty) img(src := r.image_url, width := "300") else ""
+
+      val pdfPart: Modifier = if (r.pdf_url.nonEmpty) span(a(href := r.pdf_url, target := "_blank", attr("style") := "font-size: 15px", "PDF"), br) else ""
+
+      val websiteUrl = if (r.website.nonEmpty) r.website else "#"
 
       val popupHtml = div(
         id := s"html_popup_$idx",
         attr("style") := "width: 100.0%; height: 100.0%;",
-        a(href := Option(r.url).getOrElse("#"), target := "_blank", attr("style") := "font-size: 20px", Option(r.name).getOrElse("Unknown")), br,
-        a(href := Option(r.url).getOrElse("#"), target := "_blank", imagePart),
-        a(href := Option(r.website).getOrElse("#"), target := "_blank", attr("style") := "font-size: 15px", "Website"), br,
+        a(href := r.url, target := "_blank", attr("style") := "font-size: 20px", r.name), br,
+        a(href := r.url, target := "_blank", imagePart),
+        div(
+            a(href := websiteUrl, target := "_blank", attr("style") := "font-size: 15px", "Website"), " | ",
+            a(href := resyLink, target := "_blank", attr("style") := "font-size: 15px", "Rezy"), " | ",
+            a(href := googleLink, target := "_blank", attr("style") := "font-size: 15px", "Google Maps"), " | ",
+            a(href := yelpLink, target := "_blank", attr("style") := "font-size: 15px", "Yelp")
+        ),
+        br,
         pdfPart,
         div(
           attr("style") := "display: flex;",
@@ -140,10 +128,9 @@ object MapBuilder {
       sb.append(
         s"""
            |$markerVar.bindPopup($popupJsString, {"maxWidth": "100%"});
-           |$markerVar.bindTooltip(`<div>${Option(r.name).getOrElse("Unknown")}</div>`, {"sticky": true});
+           |$markerVar.bindTooltip(`<div>${r.name}</div>`, {"sticky": true});
            |""".stripMargin)
 
-      // Add to groups
       rMealTypes.foreach { mt =>
         groupVarNames.get(mt).foreach { groupVar =>
           sb.append(s"$groupVar.addLayer($markerVar);\n")
@@ -151,7 +138,6 @@ object MapBuilder {
       }
     }
 
-    // Layer Control
     val layerTreeChildren = priceGroups.toList.sortBy(_._1).map { case (price, types) =>
       val typeChildren = types.sorted.map { mt =>
         val varName = groupVarNames(mt)
@@ -194,7 +180,6 @@ object MapBuilder {
          |).addTo(map);
          |""".stripMargin)
 
-    // Tag Filter Button
     val allTagsJson = uwrite(allTags)
     sb.append(
       s"""
@@ -208,8 +193,6 @@ object MapBuilder {
          |}).addTo(map);
          |""".stripMargin)
 
-
-    // HTML Template
     s"""<!DOCTYPE html>
        |<html>
        |<head>
