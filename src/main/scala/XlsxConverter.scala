@@ -67,7 +67,21 @@ object XlsxConverter {
         google_maps_url = getSafeStr(20),
         yelp_url = getSafeStr(21)
       )
-      restaurants += r
+
+      val googleLink = if (r.google_maps_url.isEmpty) {
+        LinkFetcher.fetchGoogleLink(r.name, r.venueAddress).getOrElse("")
+      } else r.google_maps_url
+
+      val yelpLink = if (r.yelp_url.isEmpty) {
+        LinkFetcher.fetchYelpLink(r.name, r.venueAddress).getOrElse("")
+      } else r.yelp_url
+
+      val finalR = r.copy(
+        google_maps_url = googleLink,
+        yelp_url = yelpLink
+      )
+
+      restaurants += finalR
     }
 
     workbook.close()

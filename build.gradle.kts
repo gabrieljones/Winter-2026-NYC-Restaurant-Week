@@ -20,6 +20,7 @@ java {
 dependencies {
     implementation("com.lihaoyi:upickle_3:3.1.3")
     implementation("com.lihaoyi:scalatags_3:0.12.0")
+    implementation("com.lihaoyi:requests_3:0.8.0")
     implementation("com.lihaoyi:os-lib_3:0.9.3")
     implementation("org.apache.poi:poi-ooxml:5.2.5")
 
