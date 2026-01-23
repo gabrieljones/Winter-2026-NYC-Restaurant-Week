@@ -1,31 +1,16 @@
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.FileInputStream
 import java.io.File
-import upickle.default.{write => uwrite, read => uread, _}
-import os._
+import upickle.default._
 
 object XlsxConverter {
-  def convert(xlsxPath: String, jsonPath: String, referenceJsonPath: Option[String] = None, fetchRemote: Boolean = false): Unit = {
-    // Load reference data if available
-    val referenceMap: Map[String, Restaurant] = referenceJsonPath match {
-      case Some(path) if os.exists(os.Path(path, os.pwd)) =>
-        try {
-          val json = os.read(os.Path(path, os.pwd))
-          val list = uread[List[Restaurant]](json)
-          // Key by name and address (slug might be safer, but name+address is what we fetch with)
-          list.map(r => (r.name + "|" + r.venueAddress) -> r).toMap
-        } catch {
-          case e: Exception =>
-            println(s"Warning: Failed to load reference JSON from $path: ${e.getMessage}")
-            Map.empty
-        }
-      case _ => Map.empty
-    }
 
+  // Pure function: Reads XLSX and returns List of Restaurants
+  def read(xlsxPath: String): List[Restaurant] = {
     val file = new File(xlsxPath)
     if (!file.exists()) {
       println(s"File not found: $xlsxPath")
-      return
+      return List.empty
     }
     val fis = new FileInputStream(file)
     val workbook = new XSSFWorkbook(fis)
@@ -84,37 +69,10 @@ object XlsxConverter {
         yelp_url = getSafeStr(21)
       )
 
-      // Logic:
-      // 1. If XLSX has a link, use it.
-      // 2. If XLSX empty, check reference Map.
-      // 3. If reference empty AND fetchRemote is true, fetch.
-
-      val key = r.name + "|" + r.venueAddress
-      val referenceR = referenceMap.get(key)
-
-      val googleLink = if (r.google_maps_url.nonEmpty) r.google_maps_url
-      else referenceR.map(_.google_maps_url).find(_.nonEmpty).getOrElse {
-        if (fetchRemote) LinkFetcher.fetchGoogleLink(r.name, r.venueAddress).getOrElse("") else ""
-      }
-
-      val yelpLink = if (r.yelp_url.nonEmpty) r.yelp_url
-      else referenceR.map(_.yelp_url).find(_.nonEmpty).getOrElse {
-        if (fetchRemote) LinkFetcher.fetchYelpLink(r.name, r.venueAddress).getOrElse("") else ""
-      }
-
-      val finalR = r.copy(
-        google_maps_url = googleLink,
-        yelp_url = yelpLink
-      )
-
-      restaurants += finalR
+      restaurants += r
     }
 
     workbook.close()
-
-    val json = uwrite(restaurants.toList, indent = 2)
-    val out = os.Path(jsonPath, os.pwd)
-    os.write.over(out, json, createFolders = true)
-    println(s"Converted ${restaurants.size} records to $jsonPath")
+    restaurants.toList
   }
 }
