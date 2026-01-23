@@ -1,15 +1,16 @@
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.FileInputStream
 import java.io.File
-import upickle.default.{write => uwrite, _}
-import os._
+import upickle.default._
 
 object XlsxConverter {
-  def convert(xlsxPath: String, jsonPath: String): Unit = {
+
+  // Pure function: Reads XLSX and returns List of Restaurants
+  def read(xlsxPath: String): List[Restaurant] = {
     val file = new File(xlsxPath)
     if (!file.exists()) {
       println(s"File not found: $xlsxPath")
-      return
+      return List.empty
     }
     val fis = new FileInputStream(file)
     val workbook = new XSSFWorkbook(fis)
@@ -62,16 +63,16 @@ object XlsxConverter {
         image_url = getSafeStr(15),
         partnerId = ujson.Num(getDouble(16)),
         meal_type = getStr(17),
-        tags = getStr(18)
+        tags = getStr(18),
+        resy_url = getSafeStr(19),
+        google_maps_url = getSafeStr(20),
+        yelp_url = getSafeStr(21)
       )
+
       restaurants += r
     }
 
     workbook.close()
-
-    val json = uwrite(restaurants.toList, indent = 2)
-    val out = os.Path(jsonPath, os.pwd)
-    os.write.over(out, json, createFolders = true)
-    println(s"Converted ${restaurants.size} records to $jsonPath")
+    restaurants.toList
   }
 }

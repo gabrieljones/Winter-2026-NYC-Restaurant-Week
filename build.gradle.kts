@@ -20,6 +20,7 @@ java {
 dependencies {
     implementation("com.lihaoyi:upickle_3:3.1.3")
     implementation("com.lihaoyi:scalatags_3:0.12.0")
+    implementation("com.lihaoyi:requests_3:0.8.0")
     implementation("com.lihaoyi:os-lib_3:0.9.3")
     implementation("org.apache.poi:poi-ooxml:5.2.5")
 
@@ -39,4 +40,13 @@ tasks.test {
 
 application {
     mainClass.set("Main")
+}
+
+tasks.register<JavaExec>("updateLinks") {
+    group = "application"
+    description = "Updates direct links in data/restaurants.json using API calls"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("LinkUpdater")
+    environment("GOOGLE_MAPS_API_KEY", System.getenv("GOOGLE_MAPS_API_KEY"))
+    environment("YELP_API_KEY", System.getenv("YELP_API_KEY"))
 }
