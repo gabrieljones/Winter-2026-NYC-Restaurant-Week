@@ -92,7 +92,7 @@ object MapBuilder {
       val yelpLink = s"https://www.yelp.com/search?find_desc=${encode(r.name)}&find_loc=${encode(r.venueAddress)}"
       val resyLink = s"https://resy.com/cities/ny?query=${encode(r.name)}"
 
-      val imagePart: Modifier = if (r.image_url.nonEmpty) img(src := r.image_url, width := "300") else ""
+      val imagePart: Modifier = if (r.image_url.nonEmpty) img(src := r.image_url, width := "300px") else ""
 
       val pdfPart: Modifier = if (r.pdf_url.nonEmpty) span(a(href := r.pdf_url, target := "_blank", attr("style") := "font-size: 15px", "PDF"), br) else ""
 
