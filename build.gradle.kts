@@ -41,3 +41,12 @@ tasks.test {
 application {
     mainClass.set("Main")
 }
+
+tasks.register<JavaExec>("updateLinks") {
+    group = "application"
+    description = "Updates direct links in data/restaurants.json using API calls"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("LinkUpdater")
+    environment("GOOGLE_MAPS_API_KEY", System.getenv("GOOGLE_MAPS_API_KEY"))
+    environment("YELP_API_KEY", System.getenv("YELP_API_KEY"))
+}

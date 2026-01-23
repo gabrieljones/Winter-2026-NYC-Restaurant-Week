@@ -1,11 +1,27 @@
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.FileInputStream
 import java.io.File
-import upickle.default.{write => uwrite, _}
+import upickle.default.{write => uwrite, read => uread, _}
 import os._
 
 object XlsxConverter {
-  def convert(xlsxPath: String, jsonPath: String): Unit = {
+  def convert(xlsxPath: String, jsonPath: String, referenceJsonPath: Option[String] = None, fetchRemote: Boolean = false): Unit = {
+    // Load reference data if available
+    val referenceMap: Map[String, Restaurant] = referenceJsonPath match {
+      case Some(path) if os.exists(os.Path(path, os.pwd)) =>
+        try {
+          val json = os.read(os.Path(path, os.pwd))
+          val list = uread[List[Restaurant]](json)
+          // Key by name and address (slug might be safer, but name+address is what we fetch with)
+          list.map(r => (r.name + "|" + r.venueAddress) -> r).toMap
+        } catch {
+          case e: Exception =>
+            println(s"Warning: Failed to load reference JSON from $path: ${e.getMessage}")
+            Map.empty
+        }
+      case _ => Map.empty
+    }
+
     val file = new File(xlsxPath)
     if (!file.exists()) {
       println(s"File not found: $xlsxPath")
@@ -68,13 +84,23 @@ object XlsxConverter {
         yelp_url = getSafeStr(21)
       )
 
-      val googleLink = if (r.google_maps_url.isEmpty) {
-        LinkFetcher.fetchGoogleLink(r.name, r.venueAddress).getOrElse("")
-      } else r.google_maps_url
+      // Logic:
+      // 1. If XLSX has a link, use it.
+      // 2. If XLSX empty, check reference Map.
+      // 3. If reference empty AND fetchRemote is true, fetch.
 
-      val yelpLink = if (r.yelp_url.isEmpty) {
-        LinkFetcher.fetchYelpLink(r.name, r.venueAddress).getOrElse("")
-      } else r.yelp_url
+      val key = r.name + "|" + r.venueAddress
+      val referenceR = referenceMap.get(key)
+
+      val googleLink = if (r.google_maps_url.nonEmpty) r.google_maps_url
+      else referenceR.map(_.google_maps_url).find(_.nonEmpty).getOrElse {
+        if (fetchRemote) LinkFetcher.fetchGoogleLink(r.name, r.venueAddress).getOrElse("") else ""
+      }
+
+      val yelpLink = if (r.yelp_url.nonEmpty) r.yelp_url
+      else referenceR.map(_.yelp_url).find(_.nonEmpty).getOrElse {
+        if (fetchRemote) LinkFetcher.fetchYelpLink(r.name, r.venueAddress).getOrElse("") else ""
+      }
 
       val finalR = r.copy(
         google_maps_url = googleLink,
