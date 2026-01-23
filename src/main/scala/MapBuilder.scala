@@ -88,9 +88,9 @@ object MapBuilder {
 
       def encode(s: String) = URLEncoder.encode(s, StandardCharsets.UTF_8.toString)
 
-      val googleLink = s"https://www.google.com/maps/search/?api=1&query=${encode(r.name + " " + r.venueAddress)}"
-      val yelpLink = s"https://www.yelp.com/search?find_desc=${encode(r.name)}&find_loc=${encode(r.venueAddress)}"
-      val resyLink = s"https://resy.com/cities/ny?query=${encode(r.name)}"
+      val googleLink = if (r.google_maps_url.nonEmpty) r.google_maps_url else s"https://www.google.com/maps/search/?api=1&query=${encode(r.name + " " + r.venueAddress)}"
+      val yelpLink = if (r.yelp_url.nonEmpty) r.yelp_url else s"https://www.yelp.com/search?find_desc=${encode(r.name)}&find_loc=${encode(r.venueAddress)}"
+      val resyLink = if (r.resy_url.nonEmpty) r.resy_url else s"https://resy.com/cities/ny?query=${encode(r.name)}"
 
       val imagePart: Modifier = if (r.image_url.nonEmpty) img(src := r.image_url, width := "300px") else ""
 

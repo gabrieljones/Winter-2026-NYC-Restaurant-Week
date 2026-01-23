@@ -76,4 +76,42 @@ class MapBuilderTest extends AnyFunSuite with Matchers {
     html should include("resy.com/cities/ny")
     html should include("Test+Restaurant")
   }
+
+  test("Direct links override search links") {
+    val r = Restaurant(
+        name = "Test Restaurant",
+        pdf_url = "",
+        slug = "test",
+        url = "http://test.com",
+        venueAddress = "123 Main St",
+        latitude = 40.0,
+        longitude = -74.0,
+        summary = "Summary",
+        website = "",
+        collections = "",
+        borough = "Manhattan",
+        neighborhood = "Chelsea",
+        primaryCategory = "Food",
+        primaryLocation = "NYC",
+        restaurantInclusionWeek = "Week 1",
+        image_url = "",
+        partnerId = ujson.Num(123),
+        meal_type = "$30 Lunch",
+        tags = "Italian",
+        resy_url = "https://resy.com/direct",
+        google_maps_url = "https://google.com/maps/direct",
+        yelp_url = "https://yelp.com/direct"
+    )
+
+    val html = MapBuilder.generateHtml(List(r))
+    html should include("https://resy.com/direct")
+    html should include("https://google.com/maps/direct")
+    html should include("https://yelp.com/direct")
+
+    // Should NOT include search links for this restaurant
+    html should not include("google.com/maps/search")
+    html should not include("yelp.com/search")
+    // resy default link search is just query=name.
+    html should not include("resy.com/cities/ny?query=")
+  }
 }

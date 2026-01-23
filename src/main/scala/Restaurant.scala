@@ -19,5 +19,8 @@ case class Restaurant(
     image_url: String,
     partnerId: ujson.Value,
     meal_type: String,
-    tags: String
+    tags: String,
+    resy_url: String = "",
+    google_maps_url: String = "",
+    yelp_url: String = ""
 ) derives ReadWriter

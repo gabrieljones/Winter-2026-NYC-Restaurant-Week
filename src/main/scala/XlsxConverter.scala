@@ -62,7 +62,10 @@ object XlsxConverter {
         image_url = getSafeStr(15),
         partnerId = ujson.Num(getDouble(16)),
         meal_type = getStr(17),
-        tags = getStr(18)
+        tags = getStr(18),
+        resy_url = getSafeStr(19),
+        google_maps_url = getSafeStr(20),
+        yelp_url = getSafeStr(21)
       )
       restaurants += r
     }
