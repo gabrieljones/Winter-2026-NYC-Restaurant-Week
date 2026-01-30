@@ -9,7 +9,7 @@ object Main {
     val htmlPath = outDir / "map.html"
 
     println("Converting XLSX to JSON...")
-    XlsxConverter.convert("rw_restaurants_2026-01-19.xlsx", jsonPath.toString)
+    XlsxConverter.convert("rw_restaurants_2026-01-25.xlsx", jsonPath.toString)
 
     println("Building Map...")
     MapBuilder.main(Array(jsonPath.toString, htmlPath.toString))
