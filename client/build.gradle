@@ -1,0 +1,63 @@
+plugins {
+    id 'scala'
+    id 'org.podval.tools.scalajs'
+}
+
+scala {
+    scalaVersion = "2.13.12"
+}
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    linker
+}
+
+dependencies {
+    implementation "org.scala-lang:scala-library:2.13.12"
+    implementation "org.scala-js:scalajs-library_2.13:1.15.0"
+    implementation "org.scala-js:scalajs-dom_sjs1_2.13:2.8.0"
+    implementation "com.lihaoyi:scalatags_sjs1_2.13:0.12.0"
+    implementation "com.lihaoyi:upickle_sjs1_2.13:3.1.3"
+
+    scalaCompilerPlugins "org.scala-js:scalajs-compiler_2.13.12:1.15.0"
+
+    linker "org.virtuslab.scala-cli:scalajscli_2.13:1.15.0"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+task linkMain(type: JavaExec) {
+    dependsOn compileScala
+    classpath = configurations.linker
+    mainClass = "org.scalajs.cli.Scalajsld"
+
+    doFirst {
+        def cp = sourceSets.main.runtimeClasspath.files
+
+        // Output to root project's build/dist to match server output
+        def outDir = rootProject.layout.buildDirectory.dir("dist").get().asFile
+        outDir.mkdirs()
+        def outFile = new File(outDir, "main.js")
+
+        def irCp = cp.collect { it.absolutePath }
+
+        println "Linking with classpath: ${irCp.size()} entries"
+        println "Output: ${outFile.absolutePath}"
+
+        args = ["--output", outFile.absolutePath, "--mainMethod", "App.main"] + irCp
+    }
+}
+
+task copyResources(type: Copy) {
+    from "src/main/resources"
+    into rootProject.layout.buildDirectory.dir("dist")
+}
+
+linkMain.finalizedBy copyResources
